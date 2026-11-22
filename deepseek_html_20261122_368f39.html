@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>BONDFIRE — Tales of Two Brothers | A Pixel Dungeon Crawler</title>
+  <meta name="description" content="BONDFIRE is a single-file pixel action-RPG. Two brothers fall into a dying game world and must relight the last flame. Procedural dungeons, 9 spells, 5 chapters, 6 enemy types, achievements, upgrades, endless mode." />
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%230b0a14'/%3E%3Cpath d='M32 10c6 8 12 14 12 22a12 12 0 11-24 0c0-8 6-14 12-22z' fill='%23ff8a3d'/%3E%3Cpath d='M32 24c3 4 6 7 6 11a6 6 0 11-12 0c0-4 3-7 6-11z' fill='%23ffd23f'/%3E%3C/svg%3E" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=Press+Start+2P&display=swap" rel="stylesheet" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            pixel: ['"Press Start 2P"', 'monospace'],
+          },
+          colors: {
+            ink: '#0b0a14',
+            ember: '#ff8a3d',
+            gold: '#ffd23f',
+            blood: '#e63946',
+            frost: '#5b8cff',
+            soul: '#a855f7',
+            leaf: '#4ade80',
+          },
+          keyframes: {
+            flicker: {
+              '0%,100%': { opacity: '0.95', transform: 'scale(1) translateY(0)' },
+              '40%': { opacity: '0.75', transform: 'scale(1.06) translateY(-2px)' },
+              '70%': { opacity: '1', transform: 'scale(0.97) translateY(1px)' },
+            },
+            floaty: {
+              '0%,100%': { transform: 'translateY(0)' },
+              '50%': { transform: 'translateY(-12px)' },
+            },
+            ember: {
+              '0%': { transform: 'translateY(0) translateX(0)', opacity: '0' },
+              '15%': { opacity: '1' },
+              '100%': { transform: 'translateY(-220px) translateX(20px)', opacity: '0' },
+            },
+            shake: {
+              '0%,100%': { transform: 'translate(0,0)' },
+              '20%': { transform: 'translate(-2px,1px)' },
+              '40%': { transform: 'translate(2px,-1px)' },
+              '60%': { transform: 'translate(-1px,-2px)' },
+              '80%': { transform: 'translate(1px,2px)' },
+            },
+          },
+          animation: {
+            flicker: 'flicker 2.4s ease-in-out infinite',
+            floaty: 'floaty 6s ease-in-out infinite',
+            ember: 'ember 6s linear infinite',
+            shake: 'shake 3s ease-in-out infinite',
+          },
+        },
+      },
+    };
+  </script>
+
+  <style>
+    html { scroll-behavior: smooth; }
+    body { background: #0b0a14; }
+    .pixel-title {
+      text-shadow:
+        0 2px 0 #7a3d1f,
+        0 4px 0 #4a2410,
+        0 6px 12px rgba(255,138,61,0.45),
+        0 0 40px rgba(255,138,61,0.35);
+    }
+    .ember-glow {
+      text-shadow:
+        0 0 8px rgba(255,138,61,0.9),
+        0 0 24px rgba(255,138,61,0.5),
+        0 0 48px rgba(230,57,70,0.35);
+    }
+    .crt-line {
+      background: repeating-linear-gradient(0deg, rgba(0,0,0,0.24) 0 1px, transparent 1px 3px);
+    }
+    .spot-shadow { box-shadow: 0 0 0 1px rgba(255,138,61,0.15), 0 20px 60px -20px rgba(255,138,61,0.35); }
+    .hex-grid {
+      background-image:
+        radial-gradient(circle at 20% 30%, rgba(255,138,61,0.08) 0, transparent 40%),
+        radial-gradient(circle at 80% 70%, rgba(168,85,247,0.08) 0, transparent 40%);
+    }
+    details > summary::-webkit-details-marker { display: none; }
+    details[open] .chev { transform: rotate(180deg); }
+    .chev { transition: transform 0.25s; }
+  </style>
+</head>
+
+<body class="font-sans text-slate-200 antialiased overflow-x-hidden">
+
+  <!-- ================= NAV ================= -->
+  <header class="sticky top-0 z-40 bg-ink/90 backdrop-blur-md border-b border-white/5">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between gap-3">
+      <a href="#top" class="flex items-center gap-2.5 flex-shrink-0">
+        <div class="w-9 h-9 rounded-lg bg-gradient-to-b from-ember to-blood flex items-center justify-center shadow-lg shadow-ember/40 animate-flicker">
+          <svg class="w-5 h-5 text-gold" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+            <path d="M12 2c2 4 6 6 6 12a6 6 0 11-12 0c0-3 2-5 3-7 0 2 1 3 2 3 0-3-1-5-1-8z"/>
+          </svg>
+        </div>
+        <span class="font-pixel text-sm sm:text-base tracking-tight text-white">BOND<span class="text-ember">FIRE</span></span>
+      </a>
+
+      <nav class="hidden md:flex items-center gap-7 text-sm font-medium text-slate-400">
+        <a href="#about" class="hover:text-gold transition">About</a>
+        <a href="#features" class="hover:text-gold transition">Features</a>
+        <a href="#spells" class="hover:text-gold transition">Spells</a>
+        <a href="#controls" class="hover:text-gold transition">Controls</a>
+        <a href="#demo" class="hover:text-gold transition">Play</a>
+        <a href="#faq" class="hover:text-gold transition">FAQ</a>
+      </nav>
+
+      <a href="bonefire.html" class="inline-flex items-center gap-1.5 bg-gradient-to-b from-ember to-blood hover:from-[#ffa05d] hover:to-[#f04550] text-white text-sm font-bold px-4 py-2 rounded-lg shadow-lg shadow-ember/30 transition">
+        Play
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 12h14M13 6l6 6-6 6" />
+        </svg>
+      </a>
+    </div>
+  </header>
+
+  <!-- ================= HERO ================= -->
+  <section id="top" class="relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-b from-[#0b0a14] via-[#1a0d08] to-[#0b0a14]"></div>
+    <div class="absolute inset-0 hex-grid"></div>
+    <div class="absolute inset-x-0 top-0 h-full crt-line opacity-40 pointer-events-none"></div>
+
+    <div class="absolute inset-0 pointer-events-none overflow-hidden">
+      <span class="absolute bottom-0 left-[12%] w-1.5 h-1.5 bg-ember rounded-full animate-ember" style="animation-delay:0s"></span>
+      <span class="absolute bottom-0 left-[28%] w-1 h-1 bg-gold rounded-full animate-ember" style="animation-delay:1.4s"></span>
+      <span class="absolute bottom-0 left-[46%] w-1.5 h-1.5 bg-blood rounded-full animate-ember" style="animation-delay:2.7s"></span>
+      <span class="absolute bottom-0 left-[63%] w-1 h-1 bg-gold rounded-full animate-ember" style="animation-delay:0.8s"></span>
+      <span class="absolute bottom-0 left-[78%] w-1.5 h-1.5 bg-ember rounded-full animate-ember" style="animation-delay:3.6s"></span>
+      <span class="absolute bottom-0 left-[88%] w-1 h-1 bg-blood rounded-full animate-ember" style="animation-delay:2.1s"></span>
+    </div>
+
+    <div class="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pt-14 pb-24 lg:pt-20 lg:pb-32">
+      <div class="text-center max-w-3xl mx-auto">
+        <span class="inline-flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-ember/10 text-gold border border-ember/30">
+          <span class="w-2 h-2 rounded-full bg-ember animate-pulse"></span>
+          A single-file pixel action-RPG
+        </span>
+
+        <h1 class="mt-6 font-pixel text-4xl sm:text-5xl lg:text-6xl text-white pixel-title tracking-tight leading-tight">
+          BOND<span class="text-ember ember-glow">FIRE</span>
+        </h1>
+        <p class="mt-4 font-pixel text-[10px] sm:text-xs tracking-[0.35em] text-gold/80">
+          TALES OF TWO BROTHERS
+        </p>
+
+        <p class="mt-6 text-base sm:text-lg text-slate-300 leading-relaxed max-w-xl mx-auto">
+          Two brothers fall through a burning screen into <strong class="text-gold">Emberkin</strong> — a dying game
+          world whose last flame is going out. Fight through procedural crypts, master nine spells, and relight
+          the fire before the shadows swallow you both.
+        </p>
+
+        <div class="mt-8 flex flex-wrap items-center justify-center gap-3">
+          <a href="bonefire.html" class="inline-flex items-center gap-2 bg-gradient-to-b from-ember to-blood hover:from-[#ffa05d] hover:to-[#f04550] text-white font-bold px-7 py-3.5 rounded-xl shadow-xl shadow-ember/30 transition">
+            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+            Play BONDFIRE
+          </a>
+          <a href="#demo" class="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold px-7 py-3.5 rounded-xl transition">
+            Try it in-page
+          </a>
+        </div>
+
+        <dl class="mt-12 grid grid-cols-2 sm:grid-cols-4 gap-4 max-w-2xl mx-auto">
+          <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+            <dt class="font-pixel text-xl text-gold">5</dt>
+            <dd class="text-xs text-slate-400 mt-1">Chapters</dd>
+          </div>
+          <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+            <dt class="font-pixel text-xl text-frost">9</dt>
+            <dd class="text-xs text-slate-400 mt-1">Spells</dd>
+          </div>
+          <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+            <dt class="font-pixel text-xl text-soul">30+</dt>
+            <dd class="text-xs text-slate-400 mt-1">Achievements</dd>
+          </div>
+          <div class="bg-white/[0.03] border border-white/10 rounded-xl p-4">
+            <dt class="font-pixel text-xl text-leaf">∞</dt>
+            <dd class="text-xs text-slate-400 mt-1">Endless waves</dd>
+          </div>
+        </dl>
+      </div>
+
+      <div class="mt-16 max-w-4xl mx-auto">
+        <div class="relative rounded-2xl border border-white/10 bg-black/60 overflow-hidden spot-shadow">
+          <div class="absolute inset-0 crt-line opacity-50 pointer-events-none"></div>
+          <div class="relative px-6 py-10 sm:px-10">
+            <p class="text-center text-[10px] font-pixel uppercase tracking-[0.3em] text-slate-500 mb-6">
+              Heroes &amp; Monsters
+            </p>
+            <div class="flex flex-wrap items-end justify-center gap-5 sm:gap-8">
+              <div class="text-center">
+                <div class="w-16 h-16 mx-auto rounded-lg bg-frost/20 border-2 border-frost/50 flex items-center justify-center shadow-lg shadow-frost/20 animate-floaty">
+                  <span class="font-pixel text-frost text-2xl">a</span>
+                </div>
+                <p class="mt-2 text-xs text-slate-400">Hero</p>
+              </div>
+              <div class="text-center">
+                <div class="w-16 h-16 mx-auto rounded-lg bg-leaf/20 border-2 border-leaf/50 flex items-center justify-center shadow-lg shadow-leaf/20 animate-floaty" style="animation-delay:.6s">
+                  <span class="font-pixel text-leaf text-2xl">b</span>
+                </div>
+                <p class="mt-2 text-xs text-slate-400">Brother</p>
+              </div>
+              <div class="text-center">
+                <div class="w-14 h-14 mx-auto rounded-lg bg-leaf/10 border-2 border-leaf/40 flex items-center justify-center">
+                  <span class="text-leaf text-3xl">🟢</span>
+                </div>
+                <p class="mt-2 text-xs text-slate-400">Slime</p>
+              </div>
+              <div class="text-center">
+                <div class="w-14 h-14 mx-auto rounded-lg bg-soul/10 border-2 border-soul/40 flex items-center justify-center">
+                  <span class="text-soul text-3xl">🦇</span>
+                </div>
+                <p class="mt-2 text-xs text-slate-400">Bat</p>
+              </div>
+              <div class="text-center">
+                <div class="w-14 h-14 mx-auto rounded-lg bg-slate-100/10 border-2 border-slate-100/40 flex items-center justify-center">
+                  <span class="text-slate-200 text-3xl">💀</span>
+                </div>
+                <p class="mt-2 text-xs text-slate-400">Skeleton</p>
+              </div>
+              <div class="text-center">
+                <div class="w-14 h-14 mx-auto rounded-lg bg-gold/10 border-2 border-gold/40 flex items-center justify-center">
+                  <span class="text-gold text-3xl">💨</span>
+                </div>
+                <p class="mt-2 text-xs text-slate-400">Wisp</p>
+              </div>
+              <div class="text-center">
+                <div class="w-16 h-16 mx-auto rounded-lg bg-blood/20 border-2 border-ember/60 flex items-center justify-center shadow-lg shadow-blood/30 animate-shake">
+                  <span class="text-ember text-3xl">👑</span>
+                </div>
+                <p class="mt-2 text-xs text-slate-400">Boss</p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= STORY / ABOUT ================= -->
+  <section id="about" class="relative bg-[#08070f] border-y border-white/5">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-24">
+      <div class="grid lg:grid-cols-2 gap-12 items-center">
+        <div>
+          <p class="font-pixel text-[10px] uppercase tracking-[0.3em] text-ember">The Story</p>
+          <h2 class="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-white">
+            One night. One old game.<br/>
+            <span class="text-gold">Two brothers who never came back.</span>
+          </h2>
+          <div class="mt-6 space-y-4 text-slate-400 leading-relaxed">
+            <p>
+              You and your brother were playing an old forgotten game when the screen began to <strong class="text-white">burn</strong>.
+              You fell through light and static — into the game itself.
+            </p>
+            <p>
+              Emberkin is a world of crypts and ember woods where the last flame is guttering out. Only heroes
+              from beyond can relight it. So you took up the blade, and began your journey.
+            </p>
+            <p class="text-slate-500">
+              When the Lich falls, his dying breath curses you and drags your brother into the abyss.
+              Five floors below, the Void King holds him in shadow. You lost him once.
+              <span class="text-gold font-semibold">You will not lose him again.</span>
+            </p>
+          </div>
+        </div>
+
+        <div class="relative">
+          <div class="absolute -inset-6 bg-gradient-to-br from-ember/20 via-blood/10 to-soul/20 blur-3xl"></div>
+          <div class="relative rounded-2xl border border-ember/20 bg-black/60 p-6 spot-shadow">
+            <div class="flex items-center gap-2 mb-4">
+              <div class="w-2.5 h-2.5 rounded-full bg-blood"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-gold"></div>
+              <div class="w-2.5 h-2.5 rounded-full bg-leaf"></div>
+              <span class="ml-auto text-[10px] font-mono text-slate-500">bonefire.html</span>
+            </div>
+            <div class="space-y-3 font-mono text-[11px] leading-relaxed">
+              <p class="text-slate-500">&gt; <span class="text-gold">CHAPTER 1</span> — THE SUNKEN CRYPT</p>
+              <p class="text-slate-500">&gt; <span class="text-gold">CHAPTER 2</span> — THE EMBER WOODS</p>
+              <p class="text-slate-500">&gt; <span class="text-gold">CHAPTER 3</span> — THE LICH THRONE</p>
+              <p class="text-slate-500">&gt; <span class="text-gold">CHAPTER 4</span> — THE ASHEN STAIRS</p>
+              <p class="text-slate-500">&gt; <span class="text-gold">CHAPTER 5</span> — THE VOID KING</p>
+              <p class="text-blood mt-4">&gt; ENDLESS MODE — waves never stop</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FEATURES ================= -->
+  <section id="features" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-24">
+    <div class="max-w-2xl">
+      <p class="font-pixel text-[10px] uppercase tracking-[0.3em] text-ember">Features</p>
+      <h2 class="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-white">Built like a real action-RPG</h2>
+      <p class="mt-3 text-slate-400">No engine, no build step, no dependencies beyond a Google font and a Tailwind CDN. Just canvas and care.</p>
+    </div>
+
+    <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div class="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 hover:border-ember/40 hover:bg-white/[0.04] transition">
+        <div class="w-10 h-10 rounded-xl bg-ember/10 text-ember flex items-center justify-center mb-4 group-hover:bg-ember group-hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4h6v6H4zM14 4h6v6h-6zM4 14h6v6H4zM14 14h6v6h-6z"/></svg>
+        </div>
+        <h3 class="font-bold text-white">Procedural floors</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">Each floor is generated as a room graph — walls, doors, pillar layouts and treasure all randomised on entry.</p>
+      </div>
+
+      <div class="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 hover:border-frost/40 hover:bg-white/[0.04] transition">
+        <div class="w-10 h-10 rounded-xl bg-frost/10 text-frost flex items-center justify-center mb-4 group-hover:bg-frost group-hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>
+        </div>
+        <h3 class="font-bold text-white">3-hit combo system</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">Chain three slashes within 0.65s for a heavy finisher with extra range, double damage, and a bigger knockback.</p>
+      </div>
+
+      <div class="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 hover:border-gold/40 hover:bg-white/[0.04] transition">
+        <div class="w-10 h-10 rounded-xl bg-gold/10 text-gold flex items-center justify-center mb-4 group-hover:bg-gold group-hover:text-black transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 3v4M3 5h4M6 17v4m-2-2h4m5-16l2.286 6.857L21 12l-5.714 2.143L13 21l-2.286-6.857L5 12l5.714-2.143L13 3z"/></svg>
+        </div>
+        <h3 class="font-bold text-white">Perfect dodge &amp; weak points</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">Dash through an attack at the last moment for a "PERFECT!" bonus. Staggered enemies take 2× damage for a few seconds.</p>
+      </div>
+
+      <div class="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 hover:border-soul/40 hover:bg-white/[0.04] transition">
+        <div class="w-10 h-10 rounded-xl bg-soul/10 text-soul flex items-center justify-center mb-4 group-hover:bg-soul group-hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 2l2.4 7.4H22l-6.2 4.5 2.4 7.4L12 16.8 5.8 21.3l2.4-7.4L2 9.4h7.6z"/></svg>
+        </div>
+        <h3 class="font-bold text-white">Achievements &amp; shards</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">Earn 30+ hidden achievements — first blood, 10-hit combos, perfect dodges, wave 20 — and collect shards to buy permanent upgrades.</p>
+      </div>
+
+      <div class="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 hover:border-ember/40 hover:bg-white/[0.04] transition">
+        <div class="w-10 h-10 rounded-xl bg-ember/10 text-ember flex items-center justify-center mb-4 group-hover:bg-ember group-hover:text-white transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+        </div>
+        <h3 class="font-bold text-white">Relic-unlocked spells</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">Find three relics hidden across the chapters to unlock three extra spells — Meteor, Inferno and Time Stop.</p>
+      </div>
+
+      <div class="group rounded-2xl border border-white/10 bg-white/[0.02] p-6 hover:border-leaf/40 hover:bg-white/[0.04] transition">
+        <div class="w-10 h-10 rounded-xl bg-leaf/10 text-leaf flex items-center justify-center mb-4 group-hover:bg-leaf group-hover:text-black transition">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"/></svg>
+        </div>
+        <h3 class="font-bold text-white">Mobile-ready</h3>
+        <p class="mt-2 text-sm text-slate-400 leading-relaxed">Virtual joystick, on-screen slash/dash buttons, and three spell buttons with radial cooldowns. Auto-detects touch.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= SPELLS ================= -->
+  <section id="spells" class="relative bg-[#08070f] border-y border-white/5">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-24">
+      <div class="max-w-2xl">
+        <p class="font-pixel text-[10px] uppercase tracking-[0.3em] text-frost">Spellbook</p>
+        <h2 class="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-white">Three slots. Nine options.</h2>
+        <p class="mt-3 text-slate-400">Six spells are available from the start. Three more unlock as you find relics — pick any three before each run.</p>
+      </div>
+
+      <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
+        <div class="rounded-xl border border-ember/30 bg-ember/5 p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-ember">Fireball</span>
+            <span class="font-mono text-xs text-slate-500">20 MP · 1.5s</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">Hurl a blazing orb that explodes on impact. Area damage, chains through enemies.</p>
+        </div>
+        <div class="rounded-xl border border-frost/30 bg-frost/5 p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-frost">Frost Nova</span>
+            <span class="font-mono text-xs text-slate-500">30 MP · 6s</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">A ring of ice hits everything near you and freezes them in place.</p>
+        </div>
+        <div class="rounded-xl border border-gold/30 bg-gold/5 p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-gold">Thunder</span>
+            <span class="font-mono text-xs text-slate-500">35 MP · 5s</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">Lightning chains through up to four foes, each bolt jumping to the next.</p>
+        </div>
+        <div class="rounded-xl border border-leaf/30 bg-leaf/5 p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-leaf">Heal</span>
+            <span class="font-mono text-xs text-slate-500">40 MP · 12s</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">Restore two hearts with a burst of light. Best saved for a panic moment.</p>
+        </div>
+        <div class="rounded-xl border border-soul/30 bg-soul/5 p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-soul">Blink</span>
+            <span class="font-mono text-xs text-slate-500">15 MP · 3s</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">Teleport forward and dodge all damage for half a second. Great gap-closer.</p>
+        </div>
+        <div class="rounded-xl border border-frost/30 bg-frost/5 p-4">
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-frost">Ward</span>
+            <span class="font-mono text-xs text-slate-500">30 MP · 10s</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">A shield blocks the next three hits over six seconds. Pure defensive layer.</p>
+        </div>
+
+        <div class="rounded-xl border border-blood/40 bg-blood/10 p-4 relative overflow-hidden">
+          <span class="absolute top-2 right-2 text-[9px] font-pixel text-gold bg-gold/20 px-2 py-0.5 rounded">RELIC</span>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-blood">Meteor</span>
+            <span class="font-mono text-xs text-slate-500">50 MP · 8s</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">Call meteors down on up to five foes. Huge area damage on impact.</p>
+        </div>
+        <div class="rounded-xl border border-ember/40 bg-ember/10 p-4 relative overflow-hidden">
+          <span class="absolute top-2 right-2 text-[9px] font-pixel text-gold bg-gold/20 px-2 py-0.5 rounded">RELIC</span>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-ember">Inferno</span>
+            <span class="font-mono text-xs text-slate-500">40 MP · 6s</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">A wall of flame scorches everything in front of you and burns them.</p>
+        </div>
+        <div class="rounded-xl border border-soul/40 bg-soul/10 p-4 relative overflow-hidden">
+          <span class="absolute top-2 right-2 text-[9px] font-pixel text-gold bg-gold/20 px-2 py-0.5 rounded">RELIC</span>
+          <div class="flex items-center justify-between mb-2">
+            <span class="text-sm font-bold text-soul">Time Stop</span>
+            <span class="font-mono text-xs text-slate-500">45 MP · 14s</span>
+          </div>
+          <p class="text-xs text-slate-400 leading-relaxed">Freeze all foes and wipe their projectiles. A get-out-of-jail card.</p>
+        </div>
+      </div>
+
+      <p class="mt-6 text-xs text-slate-500 text-center">Relic spells only appear in the picker once you've found the corresponding relic.</p>
+    </div>
+  </section>
+
+  <!-- ================= CONTROLS ================= -->
+  <section id="controls" class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-24">
+    <div class="grid lg:grid-cols-2 gap-12 items-start">
+      <div>
+        <p class="font-pixel text-[10px] uppercase tracking-[0.3em] text-gold">Controls</p>
+        <h2 class="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-white">Keyboard or touch</h2>
+        <p class="mt-3 text-slate-400 leading-relaxed">
+          The game auto-detects whether you're on a pointer or touch device — and you can override it
+          from the menu if you want the virtual buttons on a PC or the keyboard hints on a tablet.
+        </p>
+
+        <div class="mt-6 space-y-3">
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+              <span class="font-pixel text-[10px] text-gold">WASD</span>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-white">Move</p>
+              <p class="text-xs text-slate-500">Or arrow keys. Virtual joystick on touch.</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+              <span class="font-pixel text-[9px] text-ember">SPC</span>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-white">Slash &amp; combo</p>
+              <p class="text-xs text-slate-500">Space, J or Z. Tap three times quickly for a heavy finisher.</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+              <span class="font-pixel text-[9px] text-frost">SHF</span>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-white">Dash</p>
+              <p class="text-xs text-slate-500">Shift, K or X. Perfect dodge if you time it against an attack.</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+              <span class="font-pixel text-[9px] text-gold">1 2 3</span>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-white">Cast spells</p>
+              <p class="text-xs text-slate-500">Or Q / E / R. Costs mana, has a cooldown.</p>
+            </div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="w-9 h-9 rounded-lg bg-white/5 border border-white/10 flex items-center justify-center flex-shrink-0">
+              <span class="font-pixel text-[9px] text-soul">P</span>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-white">Pause &amp; mute</p>
+              <p class="text-xs text-slate-500">P pauses mid-run, M toggles audio, Esc returns to menu.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="rounded-2xl border border-white/10 bg-black/50 p-6 spot-shadow">
+        <div class="flex items-center justify-between mb-4 pb-3 border-b border-white/10">
+          <h3 class="font-bold text-white text-sm">Tips for a better run</h3>
+          <span class="text-[10px] font-pixel text-gold bg-gold/10 px-2 py-1 rounded">Advice</span>
+        </div>
+        <ul class="space-y-3 text-xs text-slate-400 leading-relaxed">
+          <li class="flex gap-2"><span class="text-gold">•</span> Kill enemies in quick succession to build a score combo. The multiplier stacks up to 5×.</li>
+          <li class="flex gap-2"><span class="text-gold">•</span> Dash through an attack at the last moment for a PERFECT dodge — it slows the room for a beat and rewards bonus points.</li>
+          <li class="flex gap-2"><span class="text-gold">•</span> Watch for the WEAK! marker over staggered enemies — you deal double damage while it's up.</li>
+          <li class="flex gap-2"><span class="text-gold">•</span> Bosses have two phases. When their health drops below half, expect a new attack pattern.</li>
+          <li class="flex gap-2"><span class="text-gold">•</span> Save at least one defensive spell — Ward or Blink — for boss rooms.</li>
+          <li class="flex gap-2"><span class="text-gold">•</span> Grab shards dropped by enemies and bosses to buy permanent upgrades between runs.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= LIVE DEMO ================= -->
+  <section id="demo" class="relative bg-gradient-to-b from-[#0b0a14] via-[#1a0d08] to-[#0b0a14] border-y border-white/5">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-24">
+      <div class="max-w-2xl">
+        <p class="font-pixel text-[10px] uppercase tracking-[0.3em] text-ember">Play</p>
+        <h2 class="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-white">Load it right here</h2>
+        <p class="mt-3 text-slate-400">
+          The full game is embedded below. It needs <code class="text-gold bg-white/5 px-1.5 py-0.5 rounded text-xs">bonefire.html</code>
+          in the same folder as this page. Best on a keyboard or with a touch screen.
+        </p>
+      </div>
+
+      <div class="mt-8">
+        <div id="demoPlaceholder" class="rounded-2xl border border-white/10 bg-white/[0.02] p-10 text-center">
+          <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-b from-ember to-blood flex items-center justify-center shadow-lg shadow-ember/40 animate-flicker mb-4">
+            <svg class="w-8 h-8 text-gold" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2c2 4 6 6 6 12a6 6 0 11-12 0c0-3 2-5 3-7 0 2 1 3 2 3 0-3-1-5-1-8z"/>
+            </svg>
+          </div>
+          <h3 class="font-pixel text-sm text-white">KINDLE THE FLAME</h3>
+          <p class="mt-2 text-sm text-slate-400 max-w-md mx-auto">The demo is a full game canvas with audio — load it only when you want to play.</p>
+          <div class="mt-6 flex flex-wrap justify-center gap-3">
+            <button onclick="loadDemo()" class="inline-flex items-center gap-2 bg-gradient-to-b from-ember to-blood hover:from-[#ffa05d] hover:to-[#f04550] text-white font-bold px-6 py-3 rounded-xl shadow-lg shadow-ember/25 transition">
+              Load game
+            </button>
+            <a href="bonefire.html" class="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold px-6 py-3 rounded-xl transition">
+              Open full screen
+            </a>
+          </div>
+        </div>
+
+        <div id="demoWrap" class="hidden">
+          <div class="flex items-center justify-between mb-3 text-xs text-slate-500">
+            <span>Live embed · single HTML file · no dependencies</span>
+            <a href="bonefire.html" target="_blank" rel="noopener" class="font-semibold text-ember hover:text-gold">Open full screen ↗</a>
+          </div>
+          <!-- iframe injected by loadDemo() -->
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= CHAPTERS ================= -->
+  <section class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-24">
+    <div class="max-w-2xl">
+      <p class="font-pixel text-[10px] uppercase tracking-[0.3em] text-soul">The Journey</p>
+      <h2 class="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-white">Five chapters, eight bosses</h2>
+      <p class="mt-3 text-slate-400">Unlock chapters one at a time — or replay an earlier one for a tighter score. Each chapter is multiple procedurally generated floors.</p>
+    </div>
+
+    <div class="mt-10 grid sm:grid-cols-2 lg:grid-cols-5 gap-3">
+      <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+        <div class="font-pixel text-[10px] text-ember">CH 1</div>
+        <h3 class="mt-2 font-bold text-white text-sm">The Sunken Crypt</h3>
+        <p class="mt-2 text-xs text-slate-500">Grave Warden</p>
+        <p class="mt-3 text-[11px] text-slate-400 leading-relaxed">Three floors of slimes, bats and skeletons. Learn the blade.</p>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+        <div class="font-pixel text-[10px] text-leaf">CH 2</div>
+        <h3 class="mt-2 font-bold text-white text-sm">The Ember Woods</h3>
+        <p class="mt-2 text-xs text-slate-500">Root Tyrant</p>
+        <p class="mt-3 text-[11px] text-slate-400 leading-relaxed">Overgrown ruins, snaring roots, and your first charging brutes.</p>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+        <div class="font-pixel text-[10px] text-blood">CH 3</div>
+        <h3 class="mt-2 font-bold text-white text-sm">The Lich Throne</h3>
+        <p class="mt-2 text-xs text-slate-500">Ember Lich</p>
+        <p class="mt-3 text-[11px] text-slate-400 leading-relaxed">The throne room where everything goes wrong.</p>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+        <div class="font-pixel text-[10px] text-slate-300">CH 4</div>
+        <h3 class="mt-2 font-bold text-white text-sm">The Ashen Stairs</h3>
+        <p class="mt-2 text-xs text-slate-500">Ash Golem · Forge Titan</p>
+        <p class="mt-3 text-[11px] text-slate-400 leading-relaxed">A descent toward the abyss, harder waves on every floor.</p>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/[0.02] p-5">
+        <div class="font-pixel text-[10px] text-soul">CH 5</div>
+        <h3 class="mt-2 font-bold text-white text-sm">The Void King</h3>
+        <p class="mt-2 text-xs text-slate-500">Mirror Self · The Void King</p>
+        <p class="mt-3 text-[11px] text-slate-400 leading-relaxed">Final chapter. Save your brother or fall trying.</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FAQ ================= -->
+  <section id="faq" class="relative bg-[#08070f] border-y border-white/5">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 lg:py-24">
+      <div class="text-center max-w-2xl mx-auto mb-10">
+        <p class="font-pixel text-[10px] uppercase tracking-[0.3em] text-ember">FAQ</p>
+        <h2 class="mt-4 text-3xl sm:text-4xl font-black tracking-tight text-white">Questions from the fire</h2>
+      </div>
+
+      <div class="space-y-3">
+        <details class="group bg-white/[0.02] rounded-2xl border border-white/10 p-5 open:border-ember/40 transition">
+          <summary class="flex items-center justify-between gap-4 cursor-pointer font-bold text-white">
+            Is this a real game or a demo?
+            <svg class="chev w-5 h-5 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <p class="mt-3 text-sm text-slate-400 leading-relaxed">
+            It's a real, complete game — five chapters with multiple floors each, eight named bosses,
+            a proper ending, endless mode, achievements, permanent upgrades, relics, spells, and saves.
+            It just happens to also fit in one HTML file, so you can double-click it and play.
+          </p>
+        </details>
+
+        <details class="group bg-white/[0.02] rounded-2xl border border-white/10 p-5 open:border-ember/40 transition">
+          <summary class="flex items-center justify-between gap-4 cursor-pointer font-bold text-white">
+            How do I unlock the three extra spells?
+            <svg class="chev w-5 h-5 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <p class="mt-3 text-sm text-slate-400 leading-relaxed">
+            Three relics are hidden in cleared rooms across the chapters — they have a small chance to
+            drop after any normal room is fully cleared. Grab one and the corresponding spell
+            (Meteor, Inferno or Time Stop) becomes selectable in the spell picker. Find all three to
+            have all nine spells available.
+          </p>
+        </details>
+
+        <details class="group bg-white/[0.02] rounded-2xl border border-white/10 p-5 open:border-ember/40 transition">
+          <summary class="flex items-center justify-between gap-4 cursor-pointer font-bold text-white">
+            What are shards for?
+            <svg class="chev w-5 h-5 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <p class="mt-3 text-sm text-slate-400 leading-relaxed">
+            Enemies and bosses drop shards. Spend them in the <strong class="text-white">Upgrades</strong> menu
+            on permanent boosts — more starting HP, faster dash cooldown, and extra melee damage.
+            Upgrades persist across every run and difficulty.
+          </p>
+        </details>
+
+        <details class="group bg-white/[0.02] rounded-2xl border border-white/10 p-5 open:border-ember/40 transition">
+          <summary class="flex items-center justify-between gap-4 cursor-pointer font-bold text-white">
+            Does it work on my phone?
+            <svg class="chev w-5 h-5 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <p class="mt-3 text-sm text-slate-400 leading-relaxed">
+            Yes. The game uses <code class="text-gold/80">viewport-fit=cover</code>, a virtual joystick,
+            and on-screen buttons with safe-area insets for notched phones. You can toggle "tablet mode"
+            in the menu if you want the virtual buttons on a PC or the keyboard hints on a tablet.
+          </p>
+        </details>
+
+        <details class="group bg-white/[0.02] rounded-2xl border border-white/10 p-5 open:border-ember/40 transition">
+          <summary class="flex items-center justify-between gap-4 cursor-pointer font-bold text-white">
+            Where is progress saved?
+            <svg class="chev w-5 h-5 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <p class="mt-3 text-sm text-slate-400 leading-relaxed">
+            In <code class="text-gold/80">localStorage</code> on the browser you play in: best score,
+            best endless wave, unlocked chapters, shards, upgrades, unlocked relics, achievements,
+            chosen abilities, and tablet/PC preference. Clearing site data resets everything.
+          </p>
+        </details>
+
+        <details class="group bg-white/[0.02] rounded-2xl border border-white/10 p-5 open:border-ember/40 transition">
+          <summary class="flex items-center justify-between gap-4 cursor-pointer font-bold text-white">
+            Can I edit it / learn from it?
+            <svg class="chev w-5 h-5 text-slate-500 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.4" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+          </summary>
+          <p class="mt-3 text-sm text-slate-400 leading-relaxed">
+            Yes. Everything is plain JavaScript at the top of the file: the sprite table, the enemy table,
+            the chapter list, the boss HP, the spell array. Tweak any of those and the game updates.
+            The engine is a straightforward <code class="text-gold/80">update / draw</code> loop on a 256×208 canvas.
+          </p>
+        </details>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FINAL CTA ================= -->
+  <section class="relative overflow-hidden">
+    <div class="absolute inset-0 bg-gradient-to-br from-[#1a0d08] via-[#2a0d08] to-[#0b0a14]"></div>
+    <div class="absolute inset-0 hex-grid"></div>
+    <div class="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 text-center">
+      <div class="w-16 h-16 mx-auto rounded-2xl bg-gradient-to-b from-ember to-blood flex items-center justify-center shadow-2xl shadow-ember/40 animate-flicker mb-6">
+        <svg class="w-8 h-8 text-gold" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M12 2c2 4 6 6 6 12a6 6 0 11-12 0c0-3 2-5 3-7 0 2 1 3 2 3 0-3-1-5-1-8z"/>
+        </svg>
+      </div>
+      <h2 class="font-pixel text-xl sm:text-2xl text-white pixel-title">THE FLAME IS WAITING</h2>
+      <p class="mt-4 text-slate-400 max-w-xl mx-auto">One HTML file. Five chapters. Eight bosses. Endless waves. Two brothers.</p>
+      <div class="mt-8 flex flex-wrap justify-center gap-3">
+        <a href="bonefire.html" class="inline-flex items-center gap-2 bg-gradient-to-b from-ember to-blood hover:from-[#ffa05d] hover:to-[#f04550] text-white font-bold px-8 py-4 rounded-xl shadow-xl shadow-ember/40 transition">
+          <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5v14l11-7z"/></svg>
+          Play BONDFIRE
+        </a>
+        <a href="#top" class="inline-flex items-center gap-2 bg-white/5 hover:bg-white/10 border border-white/10 text-white font-semibold px-8 py-4 rounded-xl transition">
+          Back to top
+        </a>
+      </div>
+    </div>
+  </section>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="bg-[#08070f] border-t border-white/5 text-slate-500">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+      <div class="flex flex-col sm:flex-row items-center justify-between gap-5">
+        <div class="flex items-center gap-2.5">
+          <div class="w-8 h-8 rounded-lg bg-gradient-to-b from-ember to-blood flex items-center justify-center">
+            <svg class="w-4 h-4 text-gold" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+              <path d="M12 2c2 4 6 6 6 12a6 6 0 11-12 0c0-3 2-5 3-7 0 2 1 3 2 3 0-3-1-5-1-8z"/>
+            </svg>
+          </div>
+          <span class="font-pixel text-xs text-white">BOND<span class="text-ember">FIRE</span></span>
+        </div>
+        <p class="text-xs text-center sm:text-right max-w-xl">
+          A single-file pixel action-RPG about two brothers who fell into a dying game.
+          No ads, no accounts, no downloads — just double-click and play.
+        </p>
+      </div>
+      <div class="mt-6 pt-6 border-t border-white/5 text-xs text-center">
+        © <span id="year">2025</span> BONDFIRE — Tales of Two Brothers. Built on a 256×208 canvas.
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    function loadDemo() {
+      const wrap = document.getElementById('demoWrap');
+      const placeholder = document.getElementById('demoPlaceholder');
+
+      if (!wrap.dataset.loaded) {
+        const iframe = document.createElement('iframe');
+        iframe.src = 'bonefire.html';
+        iframe.title = 'BONDFIRE — playable demo';
+        iframe.loading = 'lazy';
+        iframe.allow = 'fullscreen; autoplay';
+        iframe.className = 'w-full h-[820px] rounded-2xl border border-white/10 bg-black shadow-2xl';
+        wrap.appendChild(iframe);
+        wrap.dataset.loaded = '1';
+      }
+
+      wrap.classList.remove('hidden');
+      placeholder.classList.add('hidden');
+      wrap.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+  </script>
+</body>
+</html>
